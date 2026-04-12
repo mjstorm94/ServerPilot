@@ -1,0 +1,13 @@
+{
+    "name": "serverpilot-monitor",
+    "version": "1.0.0",
+    "description": "ServerPilot uptime monitor with email alerts",
+    "main": "server-monitor.js",
+    "scripts": {
+        "start": "node server-monitor.js",
+        "setup": "node setup-config.js"
+    },
+    "dependencies": {
+        "nodemailer": "^6.9.0"
+    }
+}

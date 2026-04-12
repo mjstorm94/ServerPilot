@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ServerPilot — Remote Windows Server Manager</title>
+    <meta name="description" content="Remotely manage Windows Updates, applications, and services on your Windows Server with a beautiful, intuitive dashboard.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🖥️</text></svg>">
+</head>
+<body>
+    <!-- Connection Modal -->
+    <div id="connection-modal" class="modal-overlay active">
+        <div class="modal">
+            <div class="modal-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <rect x="2" y="3" width="20" height="14" rx="2"/>
+                    <path d="M8 21h8M12 17v4"/>
+                </svg>
+            </div>
+            <h2>Connect to Server</h2>
+            <p class="modal-subtitle">Enter your Windows Server details to get started</p>
+            <form id="connection-form">
+                <div class="form-group">
+                    <label for="server-host">Server Address</label>
+                    <input type="text" id="server-host" placeholder="192.168.1.100 or server.domain.com" required>
+                </div>
+                <div class="form-group">
+                    <label for="server-port">Port</label>
+                    <input type="number" id="server-port" value="8443" placeholder="8443" required>
+                </div>
+                <div class="form-group">
+                    <label for="api-key">API Key</label>
+                    <input type="password" id="api-key" placeholder="Your API key from the agent installer" required>
+                    <button type="button" class="toggle-visibility" onclick="toggleApiKeyVisibility()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                    </button>
+                </div>
+                <div class="form-group checkbox-group">
+                    <input type="checkbox" id="remember-connection">
+                    <label for="remember-connection">Remember this connection</label>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full" id="connect-btn">
+                    <span class="btn-text">Connect</span>
+                    <span class="btn-loader" style="display:none"></span>
+                </button>
+                <p id="connection-error" class="form-error" style="display:none"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main Application -->
+    <div id="app" class="app hidden">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2"/>
+                            <path d="M8 21h8M12 17v4"/>
+                        </svg>
+                    </div>
+                    <div class="logo-text">
+                        <span class="logo-name">ServerPilot</span>
+                        <span class="logo-version">v1.0</span>
+                    </div>
+                </div>
+                <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Toggle sidebar">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 12h18M3 6h18M3 18h18"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="server-badge" id="server-badge">
+                <div class="server-status-dot"></div>
+                <div class="server-info">
+                    <span class="server-name" id="nav-server-name">—</span>
+                    <span class="server-address" id="nav-server-address">—</span>
+                </div>
+            </div>
+
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="3" y="14" width="7" height="7" rx="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" data-page="updates" id="nav-updates">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    <span>Updates</span>
+                    <span class="nav-badge" id="update-badge" style="display:none">0</span>
+                </a>
+                <a href="#" class="nav-item" data-page="processes" id="nav-processes">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                    <span>Processes</span>
+                </a>
+                <a href="#" class="nav-item" data-page="services" id="nav-services">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="3"/>
+                        <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+                    </svg>
+                    <span>Services</span>
+                </a>
+                <a href="#" class="nav-item" data-page="events" id="nav-events">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="16" y1="13" x2="8" y2="13"/>
+                        <line x1="16" y1="17" x2="8" y2="17"/>
+                        <polyline points="10 9 9 9 8 9"/>
+                    </svg>
+                    <span>Event Log</span>
+                </a>
+                <a href="#" class="nav-item" data-page="monitoring" id="nav-monitoring">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+                    </svg>
+                    <span>Monitoring</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <button class="nav-item disconnect-btn" id="disconnect-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+                        <polyline points="16 17 21 12 16 7"/>
+                        <line x1="21" y1="12" x2="9" y2="12"/>
+                    </svg>
+                    <span>Disconnect</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="main-content" id="main-content">
+            <!-- Top Bar -->
+            <header class="top-bar">
+                <div class="top-bar-left">
+                    <h1 id="page-title">Dashboard</h1>
+                    <span class="breadcrumb" id="breadcrumb">Overview</span>
+                </div>
+                <div class="top-bar-right">
+                    <button class="btn btn-ghost btn-icon" id="refresh-btn" title="Refresh Data">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"/>
+                            <polyline points="1 20 1 14 7 14"/>
+                            <path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                        </svg>
+                    </button>
+                    <div class="auto-refresh-toggle">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="auto-refresh-toggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <span class="toggle-label">Auto-refresh</span>
+                    </div>
+                    <span class="last-updated" id="last-updated">Last updated: —</span>
+                </div>
+            </header>
+
+            <!-- Page: Dashboard -->
+            <section class="page active" id="page-dashboard">
+                <div class="stats-grid" id="stats-grid">
+                    <div class="stat-card" id="stat-cpu">
+                        <div class="stat-icon cpu">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="4" width="16" height="16" rx="2"/>
+                                <rect x="9" y="9" width="6" height="6"/>
+                                <path d="M15 2v2M15 20v2M2 15h2M20 15h2M9 2v2M9 20v2M2 9h2M20 9h2"/>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">CPU Usage</span>
+                            <span class="stat-value" id="cpu-usage">—%</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-bar-fill" id="cpu-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="stat-memory">
+                        <div class="stat-icon memory">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M6 19v-8a6 6 0 1112 0v8"/>
+                                <path d="M6 19h12"/>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Memory</span>
+                            <span class="stat-value" id="memory-usage">— / — GB</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-bar-fill memory" id="memory-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="stat-disk">
+                        <div class="stat-icon disk">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                                <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                                <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Disk (C:)</span>
+                            <span class="stat-value" id="disk-usage">— / — GB</span>
+                        </div>
+                        <div class="stat-bar">
+                            <div class="stat-bar-fill disk" id="disk-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="stat-card" id="stat-uptime">
+                        <div class="stat-icon uptime">
+                            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"/>
+                                <polyline points="12 6 12 12 16 14"/>
+                            </svg>
+                        </div>
+                        <div class="stat-info">
+                            <span class="stat-label">Uptime</span>
+                            <span class="stat-value" id="uptime-value">—</span>
+                        </div>
+                        <div class="stat-meta">
+                            <span class="stat-sub" id="os-info">—</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card" id="dashboard-updates-card">
+                        <div class="card-header">
+                            <h3>Pending Updates</h3>
+                            <a href="#" class="card-link" data-page="updates">View All →</a>
+                        </div>
+                        <div class="card-body" id="dashboard-updates">
+                            <div class="empty-state">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                    <polyline points="7 10 12 15 17 10"/>
+                                    <line x1="12" y1="15" x2="12" y2="3"/>
+                                </svg>
+                                <p>Loading updates...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card" id="dashboard-reboot-card">
+                        <div class="card-header">
+                            <h3>System Status</h3>
+                        </div>
+                        <div class="card-body" id="dashboard-reboot">
+                            <div class="empty-state">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+                                    <circle cx="12" cy="12" r="10"/>
+                                    <line x1="12" y1="8" x2="12" y2="12"/>
+                                    <line x1="12" y1="16" x2="12.01" y2="16"/>
+                                </svg>
+                                <p>Loading status...</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card card-wide" id="dashboard-processes-card">
+                        <div class="card-header">
+                            <h3>Top Processes (by Memory)</h3>
+                            <a href="#" class="card-link" data-page="processes">View All →</a>
+                        </div>
+                        <div class="card-body" id="dashboard-processes">
+                            <div class="empty-state">
+                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
+                                    <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                                </svg>
+                                <p>Loading processes...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Page: Updates -->
+            <section class="page" id="page-updates">
+                <div class="page-actions">
+                    <div class="tab-bar" id="updates-tabs">
+                        <button class="tab active" data-tab="pending">Pending</button>
+                        <button class="tab" data-tab="history">History</button>
+                        <button class="tab" data-tab="settings">Settings</button>
+                        <button class="tab" data-tab="schedule">Schedule</button>
+                    </div>
+                    <div class="page-actions-right">
+                        <button class="btn btn-primary" id="install-all-updates-btn" style="display:none">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                            Install All Updates
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tab-content active" id="tab-pending">
+                    <div class="card">
+                        <div class="card-body" id="pending-updates-list">
+                            <div class="loading-state">
+                                <div class="spinner"></div>
+                                <p>Checking for updates...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-history">
+                    <div class="card">
+                        <div class="card-body" id="update-history-list">
+                            <div class="loading-state">
+                                <div class="spinner"></div>
+                                <p>Loading update history...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-settings">
+                    <div class="card">
+                        <div class="card-body" id="update-settings">
+                            <div class="loading-state">
+                                <div class="spinner"></div>
+                                <p>Loading settings...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-schedule">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Scheduled Update Tasks</h3>
+                            <button class="btn btn-outline" id="new-schedule-btn">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <line x1="12" y1="5" x2="12" y2="19"/>
+                                    <line x1="5" y1="12" x2="19" y2="12"/>
+                                </svg>
+                                New Schedule
+                            </button>
+                        </div>
+                        <div class="card-body" id="schedule-list">
+                            <div class="loading-state">
+                                <div class="spinner"></div>
+                                <p>Loading schedules...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Page: Processes -->
+            <section class="page" id="page-processes">
+                <div class="page-actions">
+                    <div class="search-bar">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input type="text" id="process-search" placeholder="Search processes...">
+                    </div>
+                    <div class="page-actions-right">
+                        <button class="btn btn-primary" id="start-app-btn">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polygon points="5 3 19 12 5 21 5 3"/>
+                            </svg>
+                            Start Application
+                        </button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body" id="process-list">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Loading processes...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Page: Services -->
+            <section class="page" id="page-services">
+                <div class="page-actions">
+                    <div class="search-bar">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                        </svg>
+                        <input type="text" id="service-search" placeholder="Search services...">
+                    </div>
+                    <div class="filter-chips">
+                        <button class="chip active" data-filter="all">All</button>
+                        <button class="chip" data-filter="running">Running</button>
+                        <button class="chip" data-filter="stopped">Stopped</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body" id="service-list">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Loading services...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Page: Event Log -->
+            <section class="page" id="page-events">
+                <div class="page-actions">
+                    <div class="filter-chips">
+                        <button class="chip active" data-log="System">System</button>
+                        <button class="chip" data-log="Application">Application</button>
+                        <button class="chip" data-log="Security">Security</button>
+                    </div>
+                    <div class="filter-chips">
+                        <button class="chip active" data-level="">All Levels</button>
+                        <button class="chip" data-level="critical">Critical</button>
+                        <button class="chip" data-level="error">Error</button>
+                        <button class="chip" data-level="warning">Warning</button>
+                        <button class="chip" data-level="information">Info</button>
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body" id="event-list">
+                        <div class="loading-state">
+                            <div class="spinner"></div>
+                            <p>Loading events...</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Page: Monitoring -->
+            <section class="page" id="page-monitoring">
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Connection Heartbeat</h3>
+                            <div id="heartbeat-status"></div>
+                        </div>
+                        <div class="card-body">
+                            <div class="heartbeat-container">
+                                <div class="heartbeat-stats" id="heartbeat-stats">
+                                    <div class="setting-item">
+                                        <div class="setting-label">Status</div>
+                                        <div class="setting-value" id="hb-status">Checking...</div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <div class="setting-label">Response Time</div>
+                                        <div class="setting-value" id="hb-response-time">—</div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <div class="setting-label">Checks Performed</div>
+                                        <div class="setting-value" id="hb-checks">0</div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <div class="setting-label">Uptime</div>
+                                        <div class="setting-value" id="hb-uptime">—</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-header">
+                            <h3>Email Alerts Setup</h3>
+                        </div>
+                        <div class="card-body">
+                            <div class="monitor-setup-info">
+                                <div class="monitor-feature">
+                                    <div class="monitor-feature-icon" style="background:var(--accent-rose-glow);color:var(--accent-rose-light)">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                                            <polyline points="22,6 12,13 2,6"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <strong>Server Offline Alerts</strong>
+                                        <p style="color:var(--text-muted);font-size:0.85rem;margin-top:4px">Get emailed instantly when your server goes down or comes back online.</p>
+                                    </div>
+                                </div>
+                                <div class="monitor-feature">
+                                    <div class="monitor-feature-icon" style="background:var(--accent-emerald-glow);color:var(--accent-emerald-light)">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
+                                            <polyline points="22 4 12 14.01 9 11.01"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <strong>Recovery Notifications</strong>
+                                        <p style="color:var(--text-muted);font-size:0.85rem;margin-top:4px">Receive a follow-up email with downtime duration when the server recovers.</p>
+                                    </div>
+                                </div>
+                                <div class="monitor-feature">
+                                    <div class="monitor-feature-icon" style="background:var(--accent-amber-glow);color:var(--accent-amber-light)">
+                                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                            <circle cx="12" cy="12" r="10"/>
+                                            <polyline points="12 6 12 12 16 14"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <strong>Configurable Thresholds</strong>
+                                        <p style="color:var(--text-muted);font-size:0.85rem;margin-top:4px">Set check intervals, failure thresholds, and alert cooldowns to avoid false alarms.</p>
+                                    </div>
+                                </div>
+                                <div class="monitor-setup-steps">
+                                    <h4 style="margin-bottom:12px;font-size:0.9rem">Quick Setup (run on any always-on machine):</h4>
+                                    <div class="code-block"><code>cd monitor
+npm install
+node setup-config.js   <span style="color:var(--text-muted)"># interactive wizard</span>
+npm start</code></div>
+                                    <p style="color:var(--text-muted);font-size:0.8rem;margin-top:12px">
+                                        Supports Gmail, Outlook, Yahoo, and any SMTP server.
+                                        For Gmail, use an <a href="https://myaccount.google.com/apppasswords" target="_blank" style="color:var(--accent-blue)">App Password</a>.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card card-wide">
+                        <div class="card-header">
+                            <h3>Heartbeat Timeline</h3>
+                            <span style="font-size:0.78rem;color:var(--text-muted)" id="timeline-range">Last 60 checks</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="heartbeat-timeline" id="heartbeat-timeline"></div>
+                            <div class="timeline-legend">
+                                <span class="legend-item"><span class="legend-dot" style="background:var(--accent-emerald)"></span> Online</span>
+                                <span class="legend-item"><span class="legend-dot" style="background:var(--accent-rose)"></span> Offline</span>
+                                <span class="legend-item"><span class="legend-dot" style="background:var(--text-muted)"></span> Pending</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Start Application Modal -->
+    <div id="start-app-modal" class="modal-overlay">
+        <div class="modal modal-sm">
+            <div class="modal-close" onclick="closeModal('start-app-modal')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </div>
+            <h2>Start Application</h2>
+            <p class="modal-subtitle">Enter the path to the executable on the server</p>
+            <form id="start-app-form">
+                <div class="form-group">
+                    <label for="app-path">Application Path</label>
+                    <input type="text" id="app-path" placeholder="C:\Program Files\app\app.exe" required>
+                </div>
+                <div class="form-group">
+                    <label for="app-args">Arguments (optional)</label>
+                    <input type="text" id="app-args" placeholder="--flag value">
+                </div>
+                <div class="form-group">
+                    <label for="app-workdir">Working Directory (optional)</label>
+                    <input type="text" id="app-workdir" placeholder="C:\Program Files\app">
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Start Application</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Schedule Modal -->
+    <div id="schedule-modal" class="modal-overlay">
+        <div class="modal modal-sm">
+            <div class="modal-close" onclick="closeModal('schedule-modal')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </div>
+            <h2>Schedule Updates</h2>
+            <p class="modal-subtitle">Create a recurring update schedule</p>
+            <form id="schedule-form">
+                <div class="form-group">
+                    <label for="schedule-name">Task Name</label>
+                    <input type="text" id="schedule-name" placeholder="Weekly Updates" required>
+                </div>
+                <div class="form-group">
+                    <label for="schedule-time">Time</label>
+                    <input type="time" id="schedule-time" value="03:00" required>
+                </div>
+                <div class="form-group">
+                    <label for="schedule-frequency">Frequency</label>
+                    <select id="schedule-frequency">
+                        <option value="Daily">Daily</option>
+                        <option value="Weekly" selected>Weekly</option>
+                        <option value="Monthly">Monthly</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary btn-full">Create Schedule</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Reboot Confirmation Modal -->
+    <div id="reboot-modal" class="modal-overlay">
+        <div class="modal modal-sm">
+            <div class="modal-close" onclick="closeModal('reboot-modal')">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </div>
+            <div class="modal-icon warning">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+            </div>
+            <h2>Schedule Reboot</h2>
+            <p class="modal-subtitle">This will restart the server after a delay</p>
+            <form id="reboot-form">
+                <div class="form-group">
+                    <label for="reboot-delay">Delay (minutes)</label>
+                    <input type="number" id="reboot-delay" value="5" min="1" max="1440" required>
+                </div>
+                <div class="form-group">
+                    <label for="reboot-reason">Reason</label>
+                    <input type="text" id="reboot-reason" value="Scheduled maintenance reboot">
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-ghost" onclick="closeModal('reboot-modal')">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Schedule Reboot</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="api.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

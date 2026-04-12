@@ -1,0 +1,178 @@
+/**
+ * ServerPilot API Client
+ * Handles all communication with the Windows Server Agent REST API
+ */
+
+class ServerAPI {
+    constructor() {
+        this.baseUrl = '';
+        this.apiKey = '';
+        this.connected = false;
+        this.abortController = null;
+    }
+
+    /**
+     * Configure the API connection
+     */
+    configure(host, port, apiKey) {
+        this.baseUrl = `https://${host}:${port}/api`;
+        this.apiKey = apiKey;
+    }
+
+    /**
+     * Make an authenticated API request
+     */
+    async request(endpoint, options = {}) {
+        const url = `${this.baseUrl}${endpoint}`;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 15000);
+
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-API-Key': this.apiKey,
+                    ...options.headers,
+                },
+            });
+
+            clearTimeout(timeout);
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            clearTimeout(timeout);
+            if (error.name === 'AbortError') {
+                throw new Error('Request timed out. Check if the server is reachable.');
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Test the connection to the server
+     */
+    async testConnection() {
+        try {
+            const result = await this.request('/health');
+            if (result.success) {
+                this.connected = true;
+                return result.data;
+            }
+            throw new Error('Health check failed');
+        } catch (error) {
+            this.connected = false;
+            throw error;
+        }
+    }
+
+    // ==========================================
+    // System Endpoints
+    // ==========================================
+
+    async getSystemInfo() {
+        return this.request('/system/info');
+    }
+
+    async getRebootStatus() {
+        return this.request('/system/reboot/status');
+    }
+
+    async scheduleReboot(delayMinutes = 5, reason = 'Scheduled reboot') {
+        return this.request('/system/reboot', {
+            method: 'POST',
+            body: JSON.stringify({ delay_minutes: delayMinutes, reason }),
+        });
+    }
+
+    async cancelReboot() {
+        return this.request('/system/reboot/cancel', { method: 'POST' });
+    }
+
+    async getEvents(logName = 'System', count = 50, level = '') {
+        const params = new URLSearchParams({ log: logName, count, level });
+        return this.request(`/system/events?${params}`);
+    }
+
+    // ==========================================
+    // Windows Update Endpoints
+    // ==========================================
+
+    async getPendingUpdates() {
+        return this.request('/updates/pending');
+    }
+
+    async getUpdateHistory(count = 50) {
+        return this.request(`/updates/history?count=${count}`);
+    }
+
+    async installUpdates(updateIds = []) {
+        return this.request('/updates/install', {
+            method: 'POST',
+            body: JSON.stringify({ update_ids: updateIds }),
+        });
+    }
+
+    async getUpdateSettings() {
+        return this.request('/updates/settings');
+    }
+
+    async getUpdateSchedule() {
+        return this.request('/updates/schedule');
+    }
+
+    async createUpdateSchedule(name, time, frequency = 'Daily') {
+        return this.request('/updates/schedule', {
+            method: 'POST',
+            body: JSON.stringify({ name, time, frequency }),
+        });
+    }
+
+    // ==========================================
+    // Process Endpoints
+    // ==========================================
+
+    async getProcesses(filter = '') {
+        const params = filter ? `?filter=${encodeURIComponent(filter)}` : '';
+        return this.request(`/processes${params}`);
+    }
+
+    async startProcess(path, args = '', workingDirectory = '') {
+        return this.request('/processes/start', {
+            method: 'POST',
+            body: JSON.stringify({ path, arguments: args, working_directory: workingDirectory }),
+        });
+    }
+
+    async stopProcess(pid, force = false) {
+        return this.request('/processes/stop', {
+            method: 'POST',
+            body: JSON.stringify({ pid, force }),
+        });
+    }
+
+    // ==========================================
+    // Service Endpoints
+    // ==========================================
+
+    async getServices(filter = '') {
+        const params = filter ? `?filter=${encodeURIComponent(filter)}` : '';
+        return this.request(`/services${params}`);
+    }
+
+    async controlService(name, action) {
+        return this.request('/services/action', {
+            method: 'POST',
+            body: JSON.stringify({ name, action }),
+        });
+    }
+}
+
+// Singleton instance
+const api = new ServerAPI();

@@ -1,0 +1,33 @@
+{
+    "server": {
+        "host": "YOUR_SERVER_IP",
+        "port": 8443,
+        "apiKey": "YOUR_API_KEY"
+    },
+    "monitoring": {
+        "checkIntervalSeconds": 60,
+        "failureThreshold": 3,
+        "cooldownMinutes": 30,
+        "timeoutSeconds": 10
+    },
+    "email": {
+        "enabled": true,
+        "smtp": {
+            "host": "smtp.gmail.com",
+            "port": 587,
+            "secure": false,
+            "auth": {
+                "user": "your-email@gmail.com",
+                "pass": "your-app-password"
+            }
+        },
+        "from": "ServerPilot Monitor <your-email@gmail.com>",
+        "to": ["your-email@gmail.com"],
+        "sendRecoveryAlerts": true
+    },
+    "logging": {
+        "file": "monitor.log",
+        "maxSizeMB": 10,
+        "verbose": false
+    }
+}
