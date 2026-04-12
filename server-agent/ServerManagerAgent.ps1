@@ -701,7 +701,9 @@ try {
                 "^/api/system/reboot$" {
                     if ($method -eq "POST") {
                         $body = Read-RequestBody -request $request
-                        Invoke-ScheduledReboot -DelayMinutes ([int]($body.delay_minutes ?? 5)) -Reason ($body.reason ?? "Scheduled reboot")
+                        $delay = if ($null -ne $body.delay_minutes) { $body.delay_minutes } else { 5 }
+                        $reason = if ($null -ne $body.reason) { $body.reason } else { "Scheduled reboot" }
+                        Invoke-ScheduledReboot -DelayMinutes ([int]$delay) -Reason $reason
                     }
                 }
                 "^/api/system/reboot/cancel$" {
@@ -709,10 +711,10 @@ try {
                 }
                 "^/api/system/events$" {
                     if ($method -eq "GET") {
-                        $logName = $request.QueryString["log"] ?? "System"
-                        $count = [int]($request.QueryString["count"] ?? "50")
-                        $level = $request.QueryString["level"] ?? ""
-                        Get-RecentEvents -LogName $logName -Count $count -Level $level
+                        $logName = if ($null -ne $request.QueryString["log"]) { $request.QueryString["log"] } else { "System" }
+                        $countStr = if ($null -ne $request.QueryString["count"]) { $request.QueryString["count"] } else { "50" }
+                        $level = if ($null -ne $request.QueryString["level"]) { $request.QueryString["level"] } else { "" }
+                        Get-RecentEvents -LogName $logName -Count ([int]$countStr) -Level $level
                     }
                 }
                 
@@ -722,8 +724,8 @@ try {
                 }
                 "^/api/updates/history$" {
                     if ($method -eq "GET") {
-                        $count = [int]($request.QueryString["count"] ?? "50")
-                        Get-UpdateHistory -Count $count
+                        $countStr = if ($null -ne $request.QueryString["count"]) { $request.QueryString["count"] } else { "50" }
+                        Get-UpdateHistory -Count ([int]$countStr)
                     }
                 }
                 "^/api/updates/install$" {
@@ -740,34 +742,38 @@ try {
                     if ($method -eq "GET") { Get-ScheduledUpdateTasks }
                     if ($method -eq "POST") {
                         $body = Read-RequestBody -request $request
-                        New-ScheduledUpdateTask -Name $body.name -Time $body.time -Frequency ($body.frequency ?? "Daily")
+                        $freq = if ($null -ne $body.frequency) { $body.frequency } else { "Daily" }
+                        New-ScheduledUpdateTask -Name $body.name -Time $body.time -Frequency $freq
                     }
                 }
                 
                 # Processes
                 "^/api/processes$" {
                     if ($method -eq "GET") {
-                        $filter = $request.QueryString["filter"] ?? ""
+                        $filter = if ($null -ne $request.QueryString["filter"]) { $request.QueryString["filter"] } else { "" }
                         Get-RunningProcesses -Filter $filter
                     }
                 }
                 "^/api/processes/start$" {
                     if ($method -eq "POST") {
                         $body = Read-RequestBody -request $request
-                        Start-Application -Path $body.path -Arguments ($body.arguments ?? "") -WorkingDirectory ($body.working_directory ?? "")
+                        $args = if ($null -ne $body.arguments) { $body.arguments } else { "" }
+                        $workDir = if ($null -ne $body.working_directory) { $body.working_directory } else { "" }
+                        Start-Application -Path $body.path -Arguments $args -WorkingDirectory $workDir
                     }
                 }
                 "^/api/processes/stop$" {
                     if ($method -eq "POST") {
                         $body = Read-RequestBody -request $request
-                        Stop-Application -ProcessId ([int]$body.pid) -Force:([bool]($body.force ?? $false))
+                        $forceBool = if ($null -ne $body.force) { $body.force } else { $false }
+                        Stop-Application -ProcessId ([int]$body.pid) -Force:([bool]$forceBool)
                     }
                 }
                 
                 # Services
                 "^/api/services$" {
                     if ($method -eq "GET") {
-                        $filter = $request.QueryString["filter"] ?? ""
+                        $filter = if ($null -ne $request.QueryString["filter"]) { $request.QueryString["filter"] } else { "" }
                         Get-ServicesList -Filter $filter
                     }
                 }
