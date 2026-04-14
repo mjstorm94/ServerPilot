@@ -73,19 +73,23 @@ function Test-ApiKey {
 
 function Send-JsonResponse {
     param($response, $data, [int]$statusCode = 200)
-    $json = $data | ConvertTo-Json -Depth 10 -Compress
-    $buffer = [System.Text.Encoding]::UTF8.GetBytes($json)
-    $response.StatusCode = $statusCode
-    $response.ContentType = "application/json; charset=utf-8"
-    $response.ContentLength64 = $buffer.Length
-    
-    # CORS headers
-    $response.Headers.Add("Access-Control-Allow-Origin", "*")
-    $response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-    $response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
-    
-    $response.OutputStream.Write($buffer, 0, $buffer.Length)
-    $response.OutputStream.Close()
+    try {
+        $json = $data | ConvertTo-Json -Depth 10 -Compress
+        $buffer = [System.Text.Encoding]::UTF8.GetBytes($json)
+        $response.StatusCode = $statusCode
+        $response.ContentType = "application/json; charset=utf-8"
+        $response.ContentLength64 = $buffer.Length
+        
+        # CORS headers
+        $response.Headers.Add("Access-Control-Allow-Origin", "*")
+        $response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+        $response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+        
+        $response.OutputStream.Write($buffer, 0, $buffer.Length)
+        $response.OutputStream.Close()
+    } catch {
+        # Ignore broken pipes; client already disconnected
+    }
 }
 
 function Send-ErrorResponse {
