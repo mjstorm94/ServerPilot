@@ -411,7 +411,9 @@ function startAutoRefresh() {
     stopAutoRefresh();
     if (state.autoRefresh) {
         state.refreshInterval = setInterval(() => {
-            loadPageData(state.currentPage);
+            if (state.currentPage !== 'updates') {
+                loadPageData(state.currentPage);
+            }
         }, state.refreshRate);
     }
 }
@@ -456,10 +458,17 @@ async function loadPageData(page) {
 
 async function loadDashboardData() {
     try {
+        const updatesPromise = state.cachedData.pendingUpdates
+            ? Promise.resolve({ success: true, data: state.cachedData.pendingUpdates })
+            : api.getPendingUpdates().then(res => {
+                if (res.success) state.cachedData.pendingUpdates = res.data;
+                return res;
+            });
+
         const [sysResult, rebootResult, updatesResult, processResult] = await Promise.allSettled([
             api.getSystemInfo(),
             api.getRebootStatus(),
-            api.getPendingUpdates(),
+            updatesPromise,
             api.getProcesses(),
         ]);
 
@@ -665,7 +674,9 @@ function renderDashboardProcesses(data) {
 // ============================================================
 async function loadPendingUpdates() {
     const container = document.getElementById('pending-updates-list');
-    container.innerHTML = loadingHTML('Checking for updates...');
+    if (!state.cachedData.pendingUpdates) {
+        container.innerHTML = loadingHTML('Checking for updates...');
+    }
 
     try {
         const result = await api.getPendingUpdates();
