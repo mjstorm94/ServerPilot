@@ -17,6 +17,9 @@ const state = {
     serviceStatusFilter: 'all',
     eventLog: 'System',
     eventLevel: '',
+    certStoreLocation: 'LocalMachine',
+    certStoreName: 'My',
+    certExpiringDays: 0,
     cachedData: {},
     // Monitoring / Heartbeat
     heartbeatHistory: [],
@@ -173,6 +176,7 @@ function navigateTo(page) {
         processes: ['Processes', 'Running Applications'],
         services: ['Services', 'Windows Services'],
         events: ['Event Log', 'System Events'],
+        certificates: ['Certificates', 'Manage SSL/TLS Certificates'],
         monitoring: ['Monitoring', 'Uptime & Alerts'],
     };
 
@@ -273,6 +277,26 @@ function initFilters() {
             chip.classList.add('active');
             state.eventLevel = chip.dataset.level;
             loadEvents();
+        });
+    });
+
+    // Certificates filters
+    document.getElementById('cert-store-location').addEventListener('change', (e) => {
+        state.certStoreLocation = e.target.value;
+        loadCertificates();
+    });
+
+    document.getElementById('cert-store-name').addEventListener('change', (e) => {
+        state.certStoreName = e.target.value;
+        loadCertificates();
+    });
+
+    document.querySelectorAll('#page-certificates .chip[data-expiring]').forEach(chip => {
+        chip.addEventListener('click', () => {
+            document.querySelectorAll('#page-certificates .chip[data-expiring]').forEach(c => c.classList.remove('active'));
+            chip.classList.add('active');
+            state.certExpiringDays = parseInt(chip.dataset.expiring, 10);
+            loadCertificates();
         });
     });
 }
@@ -451,6 +475,7 @@ async function loadPageData(page) {
         case 'processes': await loadProcesses(); break;
         case 'services': await loadServices(); break;
         case 'events': await loadEvents(); break;
+        case 'certificates': await loadCertificates(); break;
         case 'monitoring': await runHeartbeatCheck(); break;
     }
     updateLastUpdated();
@@ -1405,5 +1430,79 @@ function renderHeartbeatTimeline() {
         }
     }
 
+    container.innerHTML = html;
+}
+
+// ============================================================
+// RENDER: Certificates Page
+// ============================================================
+async function loadCertificates() {
+    const container = document.getElementById('certificate-list');
+    container.innerHTML = loadingHTML('Loading certificates...');
+
+    try {
+        const result = await api.getCertificates(state.certStoreLocation, state.certStoreName, state.certExpiringDays);
+        if (result.success) {
+            renderCertificates(result.data);
+        } else {
+            container.innerHTML = errorHTML(result.error);
+        }
+    } catch (error) {
+        container.innerHTML = errorHTML(error.message);
+    }
+}
+
+function renderCertificates(data) {
+    const container = document.getElementById('certificate-list');
+
+    if (!data.certificates || data.certificates.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No certificates found matching criteria</p></div>';
+        return;
+    }
+
+    let html = \`
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Subject</th>
+                <th>Issuer</th>
+                <th>Valid To</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>\`;
+
+    // Sort by expiration date (ascending)
+    const sorted = data.certificates.sort((a, b) => a.days_to_expiry - b.days_to_expiry);
+
+    sorted.forEach(cert => {
+        let statusBadge = '';
+        if (cert.days_to_expiry < 0) {
+            statusBadge = '<span class="badge badge-danger"><span class="badge-dot"></span>Expired</span>';
+        } else if (cert.days_to_expiry <= 30) {
+            statusBadge = '<span class="badge badge-danger"><span class="badge-dot"></span>Expiring Soon (' + cert.days_to_expiry + 'd)</span>';
+        } else if (cert.days_to_expiry <= 60) {
+            statusBadge = '<span class="badge badge-warning"><span class="badge-dot"></span>Expiring (' + cert.days_to_expiry + 'd)</span>';
+        } else {
+            statusBadge = '<span class="badge badge-success"><span class="badge-dot"></span>Valid</span>';
+        }
+
+        const dateStr = new Date(cert.valid_to).toLocaleDateString();
+
+        html += \`
+            <tr>
+                <td style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="\${escHtml(cert.subject)}">
+                    <strong>\${escHtml(cert.friendly_name || cert.subject.split(',')[0].replace('CN=', ''))}</strong>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">\${escHtml(cert.thumbprint)}</div>
+                </td>
+                <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="\${escHtml(cert.issuer)}">
+                    \${escHtml(cert.issuer.split(',')[0].replace('CN=', ''))}
+                </td>
+                <td class="mono">\${dateStr}</td>
+                <td>\${statusBadge}</td>
+            </tr>\`;
+    });
+
+    html += '</tbody></table>';
     container.innerHTML = html;
 }

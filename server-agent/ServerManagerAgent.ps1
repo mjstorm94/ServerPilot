@@ -639,6 +639,47 @@ function Get-RecentEvents {
     }
 }
 
+# --- Certificates ---
+function Get-Certificates {
+    param([string]$StoreLocation = "LocalMachine", [string]$StoreName = "My", [int]$ExpiringInDays = 0)
+    try {
+        $certPath = "Cert:\$StoreLocation\$StoreName"
+        if (-not (Test-Path $certPath)) {
+            return @{ success = $false; error = "Certificate store not found: $certPath"; timestamp = (Get-Date -Format "o") }
+        }
+        
+        $certs = Get-ChildItem -Path $certPath -ErrorAction SilentlyContinue
+        
+        $data = @()
+        foreach ($cert in $certs) {
+            $daysUntilExpiry = [math]::Floor(($cert.NotAfter - (Get-Date)).TotalDays)
+            
+            if ($ExpiringInDays -gt 0 -and $daysUntilExpiry -gt $ExpiringInDays) {
+                continue
+            }
+            
+            $data += @{
+                thumbprint      = $cert.Thumbprint
+                subject         = $cert.Subject
+                issuer          = $cert.Issuer
+                friendly_name   = $cert.FriendlyName
+                valid_from      = $cert.NotBefore.ToString("o")
+                valid_to        = $cert.NotAfter.ToString("o")
+                days_to_expiry  = $daysUntilExpiry
+                has_private_key = $cert.HasPrivateKey
+            }
+        }
+        
+        return @{
+            success = $true
+            data = @{ count = $data.Count; certificates = $data }
+            timestamp = (Get-Date -Format "o")
+        }
+    } catch {
+        return @{ success = $false; error = $_.Exception.Message; timestamp = (Get-Date -Format "o") }
+    }
+}
+
 # ============================================================
 # HTTP LISTENER / ROUTER
 # ============================================================
@@ -785,6 +826,16 @@ try {
                     if ($method -eq "POST") {
                         $body = Read-RequestBody -request $request
                         Set-ServiceAction -ServiceName $body.name -Action $body.action
+                    }
+                }
+                
+                # Certificates
+                "^/api/certificates$" {
+                    if ($method -eq "GET") {
+                        $storeLoc = if ($null -ne $request.QueryString["location"]) { $request.QueryString["location"] } else { "LocalMachine" }
+                        $storeName = if ($null -ne $request.QueryString["store"]) { $request.QueryString["store"] } else { "My" }
+                        $expDaysStr = if ($null -ne $request.QueryString["expiring_days"]) { $request.QueryString["expiring_days"] } else { "0" }
+                        Get-Certificates -StoreLocation $storeLoc -StoreName $storeName -ExpiringInDays ([int]$expDaysStr)
                     }
                 }
                 

@@ -172,6 +172,19 @@ class ServerAPI {
             body: JSON.stringify({ name, action }),
         });
     }
+
+    // ==========================================
+    // Certificate Endpoints
+    // ==========================================
+
+    async getCertificates(location = 'LocalMachine', store = 'My', expiringDays = 0) {
+        const params = new URLSearchParams({
+            location,
+            store,
+            expiring_days: expiringDays
+        });
+        return this.request(`/certificates?${params}`);
+    }
 }
 
 // Singleton instance
