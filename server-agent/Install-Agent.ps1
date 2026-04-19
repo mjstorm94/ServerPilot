@@ -157,8 +157,8 @@ Write-Host "  Addresses: " -NoNewline
 Write-Host ($ips -join ", ") -ForegroundColor Yellow
 Write-Host "  Port:      " -NoNewline
 Write-Host $Port -ForegroundColor Yellow
-Write-Host "  API Key:   " -NoNewline
-Write-Host $apiKey -ForegroundColor Yellow
+Write-Host "  Credentials: " -NoNewline
+Write-Host "Your Windows Administrator Username/Password" -ForegroundColor Yellow
 Write-Host ""
 Write-Host "Note: Since this uses a self-signed certificate, you may need to navigate to"
 Write-Host "https://$($ips[0]):$Port in your browser first and accept the security warning"
