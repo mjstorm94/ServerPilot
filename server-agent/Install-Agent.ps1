@@ -13,7 +13,7 @@
 
 param(
     [string]$InstallPath = "C:\ServerPilot",
-    [int]$Port = 8443,
+    [int]$Port = 8444,
     [string]$GitHubRawUrl = "https://raw.githubusercontent.com/mjstorm94/ServerPilot/master/server-agent/ServerManagerAgent.ps1"
 )
 

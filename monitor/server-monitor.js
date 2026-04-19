@@ -96,7 +96,7 @@ function checkHealth() {
         
         const options = {
             hostname: config.server.host,
-            port: config.server.port || 8443,
+            port: config.server.port || 8444,
             path: '/api/health',
             method: 'GET',
             timeout: timeoutMs,

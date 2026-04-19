@@ -59,7 +59,7 @@ function loadSavedConnection() {
         try {
             const conn = JSON.parse(saved);
             document.getElementById('server-host').value = conn.host || '';
-            document.getElementById('server-port').value = conn.port || 8443;
+            document.getElementById('server-port').value = conn.port || 8444;
             document.getElementById('api-key').value = conn.apiKey || '';
             document.getElementById('remember-connection').checked = true;
         } catch (e) { /* ignore */ }

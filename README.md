@@ -5,7 +5,7 @@ A headless, remote management tool for Windows Server. Manage **Windows Updates*
 ## Architecture
 
 ```
-┌──────────────────────────┐          HTTPS (port 8443)         ┌──────────────────────────┐
+┌──────────────────────────┐          HTTPS (port 8444)         ┌──────────────────────────┐
 │   Web Dashboard (UI)     │ ◄──────────────────────────────── │   Windows Server Agent   │
 │   HTML/CSS/JavaScript    │          REST API + API Key        │   PowerShell Service     │
 │   Any browser, any OS    │ ────────────────────────────────► │   Runs as Admin/Service  │
@@ -113,12 +113,12 @@ npx serve dashboard -l 3000
 ### 3. Connect
 
 1. Enter your server's IP address or hostname
-2. Enter the port (default: `8443`)
+2. Enter the port (default: `8444`)
 3. Enter the API key from the installer
 4. Click **Connect**
 
 > **Note:** Since the agent uses a self-signed SSL certificate, you may need to visit  
-> `https://<server-ip>:8443/api/health` in your browser first and accept the certificate warning.
+> `https://<server-ip>:8444/api/health` in your browser first and accept the certificate warning.
 
 ---
 
@@ -166,7 +166,7 @@ The agent config is stored at `C:\ServerManagerAgent\config.json`:
 
 ```json
 {
-    "Port": 8443,
+    "Port": 8444,
     "ApiKey": "your-generated-api-key",
     "AllowedOrigins": ["*"],
     "LogPath": "C:\\ServerManagerAgent\\logs",
@@ -176,7 +176,7 @@ The agent config is stored at `C:\ServerManagerAgent\config.json`:
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| `Port` | HTTPS port for the API | `8443` |
+| `Port` | HTTPS port for the API | `8444` |
 | `ApiKey` | Authentication key | Auto-generated |
 | `AllowedOrigins` | CORS allowed origins | `["*"]` |
 | `LogPath` | Directory for log files | `C:\ServerManagerAgent\logs` |
@@ -207,7 +207,7 @@ The agent config is stored at `C:\ServerManagerAgent\config.json`:
 | Issue | Solution |
 |-------|----------|
 | "Cannot reach server" | Verify the agent is running, firewall port is open, and you can ping the server |
-| Certificate error in browser | Visit `https://<ip>:8443/api/health` and accept the self-signed cert |
+| Certificate error in browser | Visit `https://<ip>:8444/api/health` and accept the self-signed cert |
 | "Unauthorized" | Check your API key matches `config.json` on the server |
 | Updates not showing | Ensure the agent runs as Administrator (required for Windows Update COM) |
 | Services won't start/stop | Agent must run with elevated privileges |

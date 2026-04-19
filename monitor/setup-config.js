@@ -31,10 +31,10 @@ async function setup() {
     console.log('');
 
     // Server settings
-    console.log('\x1b[33m  📡 Server Connection\x1b[0m');
-    const host = await ask('Server IP or hostname');
-    const port = await ask('Server port', '8443');
-    const apiKey = await ask('API Key');
+    console.log('\n--- Server Configuration ---');
+    const host = await ask('Server hostname or IP', 'localhost');
+    const port = await ask('Server port', '8444');
+    const apiKey = await ask('API Key', '');
 
     console.log('');
 

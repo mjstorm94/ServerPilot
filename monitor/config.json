@@ -1,7 +1,7 @@
 {
     "server": {
         "host": "YOUR_SERVER_IP",
-        "port": 8443,
+        "port": 8444,
         "apiKey": "YOUR_API_KEY"
     },
     "monitoring": {
