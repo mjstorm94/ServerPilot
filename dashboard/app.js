@@ -1491,7 +1491,7 @@ function renderCertificates(data) {
         return;
     }
 
-    let html = \`
+    let html = `
     <table class="data-table">
         <thead>
             <tr>
@@ -1501,7 +1501,7 @@ function renderCertificates(data) {
                 <th>Status</th>
             </tr>
         </thead>
-        <tbody>\`;
+        <tbody>`;
 
     // Sort by expiration date (ascending)
     const sorted = data.certificates.sort((a, b) => a.days_to_expiry - b.days_to_expiry);
@@ -1520,18 +1520,18 @@ function renderCertificates(data) {
 
         const dateStr = new Date(cert.valid_to).toLocaleDateString();
 
-        html += \`
+        html += `
             <tr>
-                <td style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="\${escHtml(cert.subject)}">
-                    <strong>\${escHtml(cert.friendly_name || cert.subject.split(',')[0].replace('CN=', ''))}</strong>
-                    <div style="font-size: 0.8rem; color: var(--text-muted);">\${escHtml(cert.thumbprint)}</div>
+                <td style="max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escHtml(cert.subject)}">
+                    <strong>${escHtml(cert.friendly_name || cert.subject.split(',')[0].replace('CN=', ''))}</strong>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);">${escHtml(cert.thumbprint)}</div>
                 </td>
-                <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="\${escHtml(cert.issuer)}">
-                    \${escHtml(cert.issuer.split(',')[0].replace('CN=', ''))}
+                <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escHtml(cert.issuer)}">
+                    ${escHtml(cert.issuer.split(',')[0].replace('CN=', ''))}
                 </td>
-                <td class="mono">\${dateStr}</td>
-                <td>\${statusBadge}</td>
-            </tr>\`;
+                <td class="mono">${dateStr}</td>
+                <td>${statusBadge}</td>
+            </tr>`;
     });
 
     html += '</tbody></table>';
