@@ -75,34 +75,18 @@ A headless, remote management tool for Windows Server. Manage **Windows Updates*
 - Administrator privileges
 
 ```powershell
-# Copy the server-agent folder to your Windows Server, then:
-cd C:\path\to\server-agent
-
-# Run the installer as Administrator
-powershell -ExecutionPolicy Bypass -File .\Install-Agent.ps1
+# Open PowerShell as Administrator on your target Windows Server and run:
+Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mjstorm94/ServerPilot/master/server-agent/Install-Agent.ps1" -UseBasicParsing).Content
 ```
 
-The installer will:
-1. Create `C:\ServerManagerAgent\` directory
-2. Generate a secure API key (save this!)
-3. Create a self-signed SSL certificate
-4. Configure the Windows Firewall
-5. Register the HTTPS URL prefix
+The automated installer will seamlessly:
+1. Download the latest agent from this repository.
+2. Generate a secure, 32-character API key (**save this!**).
+3. Create and bind a self-signed SSL certificate.
+4. Open the necessary Windows Firewall port.
+5. Create a background Scheduled Task to keep the agent running persistently as `SYSTEM`.
 
-**Save the API key** — you'll need it for the dashboard.
-
-#### Start the Agent
-
-```powershell
-# Run directly (for testing)
-powershell -ExecutionPolicy Bypass -File C:\ServerManagerAgent\ServerManagerAgent.ps1
-
-# Or install as a Windows Service using NSSM (recommended for production)
-# Download NSSM from https://nssm.cc/
-nssm install ServerManagerAgent powershell.exe "-ExecutionPolicy Bypass -File C:\ServerManagerAgent\ServerManagerAgent.ps1"
-nssm set ServerManagerAgent AppDirectory C:\ServerManagerAgent
-nssm set ServerManagerAgent Start SERVICE_AUTO_START
-nssm start ServerManagerAgent
+**Save the API key and IP address** output by the script—you'll need them to connect the dashboard.
 ```
 
 ### 2. Open the Web Dashboard
