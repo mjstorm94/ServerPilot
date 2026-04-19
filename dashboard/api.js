@@ -6,7 +6,8 @@
 class ServerAPI {
     constructor() {
         this.baseUrl = '';
-        this.apiKey = '';
+        this.username = '';
+        this.password = '';
         this.connected = false;
         this.abortController = null;
     }
@@ -14,9 +15,10 @@ class ServerAPI {
     /**
      * Configure the API connection
      */
-    configure(host, port, apiKey) {
+    configure(host, port, username, password) {
         this.baseUrl = `https://${host}:${port}/api`;
-        this.apiKey = apiKey;
+        this.username = username;
+        this.password = password;
     }
 
     /**
@@ -33,7 +35,7 @@ class ServerAPI {
                 signal: controller.signal,
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-API-Key': this.apiKey,
+                    'Authorization': 'Basic ' + btoa(`${this.username}:${this.password}`),
                     ...options.headers,
                 },
             });

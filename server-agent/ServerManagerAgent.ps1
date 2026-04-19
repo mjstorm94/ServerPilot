@@ -32,7 +32,7 @@ if (-not (Test-Path $ConfigPath)) {
 
 $config = Get-Content $ConfigPath | ConvertFrom-Json
 $Port = $config.Port
-$ApiKey = $config.ApiKey
+$AllowedGroup = if ($config.AllowedGroup) { $config.AllowedGroup } else { "Administrators" }
 $LogPath = if ($config.LogPath) { $config.LogPath } else { Join-Path $scriptDir "logs" }
 $AllowedOrigins = $config.AllowedOrigins
 
@@ -60,15 +60,45 @@ function Write-Log {
 # ============================================================
 # HELPER FUNCTIONS
 # ============================================================
-function Test-ApiKey {
+Add-Type -AssemblyName System.DirectoryServices.AccountManagement
+
+function Test-Authentication {
     param($request)
-    $authHeader = $request.Headers["X-API-Key"]
-    if ($authHeader -eq $ApiKey) { return $true }
+    $authHeader = $request.Headers["Authorization"]
+    if ([string]::IsNullOrEmpty($authHeader) -or -not $authHeader.StartsWith("Basic ")) {
+        return $false
+    }
     
-    $queryKey = $request.QueryString["apikey"]
-    if ($queryKey -eq $ApiKey) { return $true }
-    
-    return $false
+    try {
+        $base64 = $authHeader.Substring(6)
+        $decoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($base64))
+        $parts = $decoded -split ':', 2
+        if ($parts.Length -ne 2) { return $false }
+        $username = $parts[0]
+        $password = $parts[1]
+        
+        $context = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Machine)
+        if (-not $context.ValidateCredentials($username, $password)) {
+            return $false
+        }
+        
+        $user = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($context, $username)
+        if ($null -eq $user) { return $false }
+        
+        $groups = $user.GetAuthorizationGroups()
+        $inGroup = $false
+        foreach ($group in $groups) {
+            if ($group.Name -eq $AllowedGroup) {
+                $inGroup = $true
+                break
+            }
+        }
+        
+        return $inGroup
+    } catch {
+        Write-Log "Authentication error: $_" "ERROR"
+        return $false
+    }
 }
 
 function Send-JsonResponse {
@@ -83,7 +113,7 @@ function Send-JsonResponse {
         # CORS headers
         $response.Headers.Add("Access-Control-Allow-Origin", "*")
         $response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-        $response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+        $response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization")
         
         $response.OutputStream.Write($buffer, 0, $buffer.Length)
         $response.OutputStream.Close()
@@ -770,7 +800,7 @@ try {
         if ($method -eq "OPTIONS") {
             $response.Headers.Add("Access-Control-Allow-Origin", "*")
             $response.Headers.Add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-            $response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, X-API-Key")
+            $response.Headers.Add("Access-Control-Allow-Headers", "Content-Type, Authorization")
             $response.Headers.Add("Access-Control-Max-Age", "86400")
             $response.StatusCode = 204
             $response.Close()
@@ -792,9 +822,9 @@ try {
         }
         
         # Authentication check
-        if (-not (Test-ApiKey -request $request)) {
+        if (-not (Test-Authentication -request $request)) {
             Write-Log "Unauthorized request from $($request.RemoteEndPoint)" -Level "WARN"
-            Send-ErrorResponse -response $response -message "Unauthorized. Provide X-API-Key header." -statusCode 401
+            Send-ErrorResponse -response $response -message "Unauthorized. Provide valid credentials." -statusCode 401
             continue
         }
         

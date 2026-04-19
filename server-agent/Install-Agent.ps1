@@ -50,20 +50,15 @@ try {
     }
 }
 
-# --- 3. Generate API Key & Config ---
-Write-Host "[3/6] Generating secure API key..." -ForegroundColor Yellow
+# --- 3. Generate Config ---
+Write-Host "[3/6] Generating configuration..." -ForegroundColor Yellow
 if (-not (Test-Path "$InstallPath\config.json")) {
-    $apiKeyBytes = New-Object byte[] 24
-    $rng = [System.Security.Cryptography.RNGCryptoServiceProvider]::Create()
-    $rng.GetBytes($apiKeyBytes)
-    $apiKey = [Convert]::ToBase64String($apiKeyBytes).Replace("+", "").Replace("/", "").Replace("=", "")
-    
     $config = @{
-        Port          = $Port
-        ApiKey        = $apiKey
+        Port           = $Port
+        AllowedGroup   = "Administrators"
         AllowedOrigins = @("*")
-        LogPath       = "$InstallPath\logs"
-        MaxLogSizeMB  = 50
+        LogPath        = "$InstallPath\logs"
+        MaxLogSizeMB   = 50
     } | ConvertTo-Json -Depth 3
 
     $config | Out-File "$InstallPath\config.json" -Encoding UTF8
@@ -73,11 +68,16 @@ if (-not (Test-Path "$InstallPath\config.json")) {
         New-Item -ItemType Directory -Path "$InstallPath\logs" -Force | Out-Null
     }
     
-    Write-Host "  -> API Key generated and saved to config" -ForegroundColor Green
+    Write-Host "  -> Configuration saved to config.json (Default AllowedGroup: Administrators)" -ForegroundColor Green
 } else {
     $existingConfig = Get-Content "$InstallPath\config.json" | ConvertFrom-Json
-    $apiKey = $existingConfig.ApiKey
-    Write-Host "  -> Using existing API key from config" -ForegroundColor Green
+    if (-not $existingConfig.PSObject.Properties.Match('AllowedGroup').Count) {
+        $existingConfig | Add-Member -MemberType NoteProperty -Name "AllowedGroup" -Value "Administrators"
+        $existingConfig | ConvertTo-Json -Depth 3 | Out-File "$InstallPath\config.json" -Encoding UTF8
+        Write-Host "  -> Added 'AllowedGroup' to existing config" -ForegroundColor Green
+    } else {
+        Write-Host "  -> Using existing configuration" -ForegroundColor Green
+    }
 }
 
 # --- 4. Setup SSL Certificate & Port Binding ---

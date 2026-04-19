@@ -60,7 +60,8 @@ function loadSavedConnection() {
             const conn = JSON.parse(saved);
             document.getElementById('server-host').value = conn.host || '';
             document.getElementById('server-port').value = conn.port || 8444;
-            document.getElementById('api-key').value = conn.apiKey || '';
+            document.getElementById('server-username').value = conn.username || '';
+            document.getElementById('server-password').value = conn.password || '';
             document.getElementById('remember-connection').checked = true;
         } catch (e) { /* ignore */ }
     }
@@ -69,12 +70,13 @@ function loadSavedConnection() {
 async function handleConnect() {
     const host = document.getElementById('server-host').value.trim();
     const port = document.getElementById('server-port').value.trim();
-    const apiKey = document.getElementById('api-key').value.trim();
+    const username = document.getElementById('server-username').value.trim();
+    const password = document.getElementById('server-password').value;
     const remember = document.getElementById('remember-connection').checked;
     const errorEl = document.getElementById('connection-error');
     const btn = document.getElementById('connect-btn');
 
-    if (!host || !port || !apiKey) {
+    if (!host || !port || !username || !password) {
         showFormError(errorEl, 'Please fill in all fields');
         return;
     }
@@ -85,7 +87,7 @@ async function handleConnect() {
     btn.disabled = true;
     errorEl.style.display = 'none';
 
-    api.configure(host, port, apiKey);
+    api.configure(host, port, username, password);
 
     try {
         console.log(`[ServerPilot] Connecting to https://${host}:${port}...`);
@@ -93,7 +95,7 @@ async function handleConnect() {
         console.log('[ServerPilot] Connected successfully:', health);
         
         if (remember) {
-            localStorage.setItem('serverpilot_connection', JSON.stringify({ host, port, apiKey }));
+            localStorage.setItem('serverpilot_connection', JSON.stringify({ host, port, username, password }));
         } else {
             localStorage.removeItem('serverpilot_connection');
         }
@@ -1336,11 +1338,14 @@ function errorHTML(msg) {
     </div>`;
 }
 
-function toggleApiKeyVisibility() {
-    const input = document.getElementById('api-key');
-    input.type = input.type === 'password' ? 'text' : 'password';
+function togglePasswordVisibility() {
+    const input = document.getElementById('server-password');
+    if (input.type === 'password') {
+        input.type = 'text';
+    } else {
+        input.type = 'password';
+    }
 }
-
 // ============================================================
 // MONITORING / HEARTBEAT
 // ============================================================
