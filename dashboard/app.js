@@ -813,11 +813,15 @@ async function installSingleUpdate(updateId) {
 
 async function loadUpdateHistory() {
     const container = document.getElementById('update-history-list');
-    container.innerHTML = loadingHTML('Loading history...');
+    
+    if (!state.cachedData.updateHistory) {
+        container.innerHTML = loadingHTML('Loading history...');
+    }
 
     try {
         const result = await api.getUpdateHistory(100);
         if (result.success) {
+            state.cachedData.updateHistory = result.data;
             renderUpdateHistory(result.data);
         } else {
             container.innerHTML = errorHTML(result.error);
@@ -867,11 +871,15 @@ function renderUpdateHistory(data) {
 
 async function loadUpdateSettings() {
     const container = document.getElementById('update-settings');
-    container.innerHTML = loadingHTML('Loading settings...');
+    
+    if (!state.cachedData.updateSettings) {
+        container.innerHTML = loadingHTML('Loading settings...');
+    }
 
     try {
         const result = await api.getUpdateSettings();
         if (result.success) {
+            state.cachedData.updateSettings = result.data;
             renderUpdateSettings(result.data);
         } else {
             container.innerHTML = errorHTML(result.error);
@@ -909,11 +917,15 @@ function renderUpdateSettings(data) {
 
 async function loadUpdateSchedule() {
     const container = document.getElementById('schedule-list');
-    container.innerHTML = loadingHTML('Loading schedules...');
+    
+    if (!state.cachedData.updateSchedule) {
+        container.innerHTML = loadingHTML('Loading schedules...');
+    }
 
     try {
         const result = await api.getUpdateSchedule();
         if (result.success) {
+            state.cachedData.updateSchedule = result.data;
             renderUpdateSchedule(result.data);
         } else {
             container.innerHTML = errorHTML(result.error);
@@ -1183,11 +1195,16 @@ async function controlService(name, action) {
 // ============================================================
 async function loadEvents() {
     const container = document.getElementById('event-list');
-    container.innerHTML = loadingHTML('Loading events...');
+    const cacheKey = `events_${state.eventLog}_${state.eventLevel}`;
+    
+    if (!state.cachedData[cacheKey]) {
+        container.innerHTML = loadingHTML('Loading events...');
+    }
 
     try {
         const result = await api.getEvents(state.eventLog, 50, state.eventLevel);
         if (result.success) {
+            state.cachedData[cacheKey] = result.data;
             renderEvents(result.data);
         } else {
             container.innerHTML = errorHTML(result.error);
@@ -1469,11 +1486,16 @@ function renderHeartbeatTimeline() {
 // ============================================================
 async function loadCertificates() {
     const container = document.getElementById('certificate-list');
-    container.innerHTML = loadingHTML('Loading certificates...');
+    const cacheKey = `certs_${state.certStoreLocation}_${state.certStoreName}_${state.certExpiringDays}`;
+    
+    if (!state.cachedData[cacheKey]) {
+        container.innerHTML = loadingHTML('Loading certificates...');
+    }
 
     try {
         const result = await api.getCertificates(state.certStoreLocation, state.certStoreName, state.certExpiringDays);
         if (result.success) {
+            state.cachedData[cacheKey] = result.data;
             renderCertificates(result.data);
         } else {
             container.innerHTML = errorHTML(result.error);
@@ -1543,11 +1565,15 @@ function renderCertificates(data) {
 // ============================================================
 async function loadUsers() {
     const container = document.getElementById('user-list');
-    container.innerHTML = loadingHTML('Loading users...');
+    
+    if (!state.cachedData.users) {
+        container.innerHTML = loadingHTML('Loading users...');
+    }
 
     try {
         const result = await api.getUsers();
         if (result.success) {
+            state.cachedData.users = result.data;
             renderUsers(result.data);
         } else {
             container.innerHTML = errorHTML(result.error);
