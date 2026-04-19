@@ -76,7 +76,7 @@ A headless, remote management tool for Windows Server. Manage **Windows Updates*
 
 ```powershell
 # Open PowerShell as Administrator on your target Windows Server and run:
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mjstorm94/ServerPilot/main/server-agent/Install-Agent.ps1" -UseBasicParsing).Content
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mjstorm94/ServerPilot/master/server-agent/Install-Agent.ps1" -UseBasicParsing).Content
 ```
 
 The automated installer will seamlessly:
@@ -188,14 +188,14 @@ The agent config is stored at `C:\ServerManagerAgent\config.json`:
 
 - **HTTPS Only** — All traffic is encrypted with TLS via a self-signed certificate
 - **API Key Auth** — Every request (except health check) requires a valid API key
-- **Firewall** — The installer only opens the port on Domain and Private network profiles
+- **Firewall** — The installer only opens the port on Domaster and Private network profiles
 - **Run as Service** — Use NSSM to run as LOCAL SERVICE for least privilege
-- **Restrict Origins** — Set `AllowedOrigins` in config.json to your dashboard's domain in production
+- **Restrict Origins** — Set `AllowedOrigins` in config.json to your dashboard's domaster in production
 
 ### Hardening for Production
 
 1. Replace the self-signed cert with a proper CA-signed certificate
-2. Restrict `AllowedOrigins` to specific domains
+2. Restrict `AllowedOrigins` to specific domasters
 3. Use a strong, rotated API key
 4. Consider placing behind a reverse proxy (e.g., IIS, nginx)
 5. Enable Windows audit logging
