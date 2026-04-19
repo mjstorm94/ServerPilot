@@ -42,8 +42,12 @@ try {
     Invoke-WebRequest -Uri $GitHubRawUrl -OutFile $agentPath -UseBasicParsing
     Write-Host "  -> Download successful." -ForegroundColor Green
 } catch {
-    Write-Error "Failed to download agent script: $_"
-    exit
+    if (Test-Path $agentPath) {
+        Write-Warning "  -> Could not download from GitHub (404), but found a local copy. Using that instead."
+    } else {
+        Write-Error "Failed to download agent script and no local copy found: $_"
+        exit
+    }
 }
 
 # --- 3. Generate API Key & Config ---
