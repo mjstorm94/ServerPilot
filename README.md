@@ -76,7 +76,7 @@ A headless, remote management tool for Windows Server. Manage **Windows Updates*
 
 ```powershell
 # Open PowerShell as Administrator on your target Windows Server and run:
-Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mjstorm94/ServerPilot/master/server-agent/Install-Agent.ps1" -UseBasicParsing).Content
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-Expression (Invoke-WebRequest -Uri "https://raw.githubusercontent.com/mjstorm94/ServerPilot/master/server-agent/Install-Agent.ps1" -UseBasicParsing).Content
 ```
 
 The automated installer will seamlessly:

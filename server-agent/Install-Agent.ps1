@@ -34,6 +34,10 @@ Write-Host "  -> $InstallPath" -ForegroundColor Green
 # --- 2. Download latest agent from GitHub ---
 Write-Host "[2/6] Downloading latest agent from GitHub..." -ForegroundColor Yellow
 $agentPath = Join-Path $InstallPath "ServerManagerAgent.ps1"
+
+# Force TLS 1.2 for GitHub download
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
 try {
     Invoke-WebRequest -Uri $GitHubRawUrl -OutFile $agentPath -UseBasicParsing
     Write-Host "  -> Download successful." -ForegroundColor Green
