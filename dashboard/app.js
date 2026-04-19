@@ -176,6 +176,7 @@ function navigateTo(page) {
         processes: ['Processes', 'Running Applications'],
         services: ['Services', 'Windows Services'],
         events: ['Event Log', 'System Events'],
+        users: ['Local Users', 'Manage Local Users & Groups'],
         certificates: ['Certificates', 'Manage SSL/TLS Certificates'],
         monitoring: ['Monitoring', 'Uptime & Alerts'],
     };
@@ -394,6 +395,26 @@ function initModals() {
         }
     });
 
+    // Reset Password
+    document.getElementById('password-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const username = document.getElementById('reset-username-input').value;
+        const password = document.getElementById('new-password').value;
+
+        try {
+            const result = await api.manageUser(username, 'reset_password', password);
+            if (result.success) {
+                showToast('success', `Password reset for ${username}`);
+                closeModal('password-modal');
+                document.getElementById('password-form').reset();
+            } else {
+                showToast('error', result.error);
+            }
+        } catch (error) {
+            showToast('error', error.message);
+        }
+    });
+
     // Close on overlay click
     document.querySelectorAll('.modal-overlay').forEach(overlay => {
         overlay.addEventListener('click', (e) => {
@@ -475,6 +496,7 @@ async function loadPageData(page) {
         case 'processes': await loadProcesses(); break;
         case 'services': await loadServices(); break;
         case 'events': await loadEvents(); break;
+        case 'users': await loadUsers(); break;
         case 'certificates': await loadCertificates(); break;
         case 'monitoring': await runHeartbeatCheck(); break;
     }
@@ -1505,4 +1527,104 @@ function renderCertificates(data) {
 
     html += '</tbody></table>';
     container.innerHTML = html;
+}
+
+// ============================================================
+// RENDER: Local Users Page
+// ============================================================
+async function loadUsers() {
+    const container = document.getElementById('user-list');
+    container.innerHTML = loadingHTML('Loading users...');
+
+    try {
+        const result = await api.getUsers();
+        if (result.success) {
+            renderUsers(result.data);
+        } else {
+            container.innerHTML = errorHTML(result.error);
+        }
+    } catch (error) {
+        container.innerHTML = errorHTML(error.message);
+    }
+}
+
+function renderUsers(data) {
+    const container = document.getElementById('user-list');
+
+    if (!data.users || data.users.length === 0) {
+        container.innerHTML = '<div class="empty-state"><p>No users found</p></div>';
+        return;
+    }
+
+    let html = `
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Username</th>
+                <th>Full Name</th>
+                <th>Description</th>
+                <th>Groups</th>
+                <th>Last Logon</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>`;
+
+    data.users.forEach(user => {
+        const statusBadge = user.enabled
+            ? '<span class="badge badge-success"><span class="badge-dot"></span>Enabled</span>'
+            : '<span class="badge badge-danger"><span class="badge-dot"></span>Disabled</span>';
+
+        const lastLogon = user.last_logon ? new Date(user.last_logon).toLocaleString() : 'Never';
+        const groups = user.groups && user.groups.length > 0 ? user.groups.join(', ') : 'None';
+
+        html += `
+            <tr>
+                <td><strong>${escHtml(user.username)}</strong></td>
+                <td>${escHtml(user.full_name || '—')}</td>
+                <td><span style="font-size: 0.85rem; color: var(--text-muted);">${escHtml(user.description || '—')}</span></td>
+                <td><span style="font-size: 0.85rem; color: var(--text-muted);" title="${escHtml(groups)}">${escHtml(groups.substring(0, 30))}${groups.length > 30 ? '...' : ''}</span></td>
+                <td class="mono">${lastLogon}</td>
+                <td>${statusBadge}</td>
+                <td>
+                    <div style="display: flex; gap: 4px;">
+                        <button class="btn btn-outline btn-sm" onclick="toggleUserStatus('${escHtml(user.username)}', ${user.enabled})">
+                            ${user.enabled ? 'Disable' : 'Enable'}
+                        </button>
+                        <button class="btn btn-ghost btn-sm" onclick="openPasswordModal('${escHtml(user.username)}')">Reset Password</button>
+                    </div>
+                </td>
+            </tr>`;
+    });
+
+    html += '</tbody></table>';
+    container.innerHTML = html;
+}
+
+async function toggleUserStatus(username, currentlyEnabled) {
+    const action = currentlyEnabled ? 'disable' : 'enable';
+    const actionText = currentlyEnabled ? 'Disable' : 'Enable';
+    
+    if (!confirm(`Are you sure you want to ${actionText.toLowerCase()} the account for ${username}?`)) return;
+
+    try {
+        showToast('info', `${actionText}ing user...`);
+        const result = await api.manageUser(username, action);
+        if (result.success) {
+            showToast('success', `User ${username} is now ${result.data.enabled ? 'enabled' : 'disabled'}`);
+            loadUsers();
+        } else {
+            showToast('error', result.error);
+        }
+    } catch (error) {
+        showToast('error', error.message);
+    }
+}
+
+function openPasswordModal(username) {
+    document.getElementById('reset-password-username').textContent = username;
+    document.getElementById('reset-username-input').value = username;
+    document.getElementById('new-password').value = '';
+    openModal('password-modal');
 }

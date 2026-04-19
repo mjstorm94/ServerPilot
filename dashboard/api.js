@@ -185,6 +185,21 @@ class ServerAPI {
         });
         return this.request(`/certificates?${params}`);
     }
+
+    // ==========================================
+    // Local Users Endpoints
+    // ==========================================
+
+    async getUsers() {
+        return this.request('/users');
+    }
+
+    async manageUser(username, action, password = '') {
+        return this.request('/users/action', {
+            method: 'POST',
+            body: JSON.stringify({ username, action, password }),
+        });
+    }
 }
 
 // Singleton instance

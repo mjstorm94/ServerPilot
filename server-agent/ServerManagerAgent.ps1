@@ -680,6 +680,71 @@ function Get-Certificates {
     }
 }
 
+# --- Local Users ---
+function Get-LocalUsersList {
+    try {
+        $users = Get-LocalUser | Select-Object Name, FullName, Description, Enabled, LastLogon
+        $data = @()
+        foreach ($u in $users) {
+            $groups = @()
+            try {
+                $groups = (Get-LocalGroup | Where-Object { 
+                    (Get-LocalGroupMember -Group $_.Name -Member $u.Name -ErrorAction SilentlyContinue) 
+                }).Name
+            } catch {}
+
+            $data += @{
+                username    = $u.Name
+                full_name   = $u.FullName
+                description = $u.Description
+                enabled     = $u.Enabled
+                last_logon  = if ($u.LastLogon) { $u.LastLogon.ToString("o") } else { $null }
+                groups      = $groups
+            }
+        }
+        return @{
+            success = $true
+            data = @{ count = $data.Count; users = $data }
+            timestamp = (Get-Date -Format "o")
+        }
+    } catch {
+        return @{ success = $false; error = $_.Exception.Message; timestamp = (Get-Date -Format "o") }
+    }
+}
+
+function Set-LocalUserAction {
+    param([string]$Username, [string]$Action, [string]$Password = "")
+    try {
+        $user = Get-LocalUser -Name $Username -ErrorAction Stop
+        
+        switch ($Action.ToLower()) {
+            "enable" { Enable-LocalUser -Name $Username }
+            "disable" { Disable-LocalUser -Name $Username }
+            "reset_password" {
+                if ([string]::IsNullOrEmpty($Password)) { throw "Password is required for reset" }
+                $securePassword = ConvertTo-SecureString $Password -AsPlainText -Force
+                Set-LocalUser -Name $Username -Password $securePassword
+            }
+            default { throw "Invalid action: $Action" }
+        }
+        
+        $updatedUser = Get-LocalUser -Name $Username
+        Write-Log "User $Username action: $Action"
+        
+        return @{
+            success = $true
+            data = @{
+                username = $Username
+                action   = $Action
+                enabled  = $updatedUser.Enabled
+            }
+            timestamp = (Get-Date -Format "o")
+        }
+    } catch {
+        return @{ success = $false; error = $_.Exception.Message; timestamp = (Get-Date -Format "o") }
+    }
+}
+
 # ============================================================
 # HTTP LISTENER / ROUTER
 # ============================================================
@@ -836,6 +901,18 @@ try {
                         $storeName = if ($null -ne $request.QueryString["store"]) { $request.QueryString["store"] } else { "My" }
                         $expDaysStr = if ($null -ne $request.QueryString["expiring_days"]) { $request.QueryString["expiring_days"] } else { "0" }
                         Get-Certificates -StoreLocation $storeLoc -StoreName $storeName -ExpiringInDays ([int]$expDaysStr)
+                    }
+                }
+                
+                # Local Users
+                "^/api/users$" {
+                    if ($method -eq "GET") { Get-LocalUsersList }
+                }
+                "^/api/users/action$" {
+                    if ($method -eq "POST") {
+                        $body = Read-RequestBody -request $request
+                        $pwd = if ($null -ne $body.password) { $body.password } else { "" }
+                        Set-LocalUserAction -Username $body.username -Action $body.action -Password $pwd
                     }
                 }
                 
