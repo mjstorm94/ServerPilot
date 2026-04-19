@@ -33,7 +33,7 @@ if (-not (Test-Path $ConfigPath)) {
 $config = Get-Content $ConfigPath | ConvertFrom-Json
 $Port = $config.Port
 $ApiKey = $config.ApiKey
-$LogPath = $config.LogPath
+$LogPath = if ($config.LogPath) { $config.LogPath } else { Join-Path $scriptDir "logs" }
 $AllowedOrigins = $config.AllowedOrigins
 
 if (-not (Test-Path $LogPath)) {

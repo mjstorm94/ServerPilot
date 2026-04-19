@@ -62,9 +62,17 @@ if (-not (Test-Path "$InstallPath\config.json")) {
         Port          = $Port
         ApiKey        = $apiKey
         AllowedOrigins = @("*")
+        LogPath       = "$InstallPath\logs"
+        MaxLogSizeMB  = 50
     } | ConvertTo-Json -Depth 3
 
     $config | Out-File "$InstallPath\config.json" -Encoding UTF8
+    
+    # Create logs directory
+    if (-not (Test-Path "$InstallPath\logs")) {
+        New-Item -ItemType Directory -Path "$InstallPath\logs" -Force | Out-Null
+    }
+    
     Write-Host "  -> API Key generated and saved to config" -ForegroundColor Green
 } else {
     $existingConfig = Get-Content "$InstallPath\config.json" | ConvertFrom-Json
