@@ -66,6 +66,7 @@ function Test-Authentication {
     param($request)
     $authHeader = $request.Headers["Authorization"]
     if ([string]::IsNullOrEmpty($authHeader) -or -not $authHeader.StartsWith("Basic ")) {
+        Write-Log "Missing or invalid Authorization header" "WARN"
         return $false
     }
     
@@ -73,17 +74,44 @@ function Test-Authentication {
         $base64 = $authHeader.Substring(6)
         $decoded = [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($base64))
         $parts = $decoded -split ':', 2
-        if ($parts.Length -ne 2) { return $false }
+        if ($parts.Length -ne 2) { 
+            Write-Log "Malformed Basic Auth payload" "WARN"
+            return $false 
+        }
         $username = $parts[0]
         $password = $parts[1]
         
-        $context = New-Object System.DirectoryServices.AccountManagement.PrincipalContext([System.DirectoryServices.AccountManagement.ContextType]::Machine)
+        $contextType = [System.DirectoryServices.AccountManagement.ContextType]::Machine
+        $domain = $null
+        $searchUsername = $username
+        
+        if ($username -match "\\") {
+            $nameParts = $username -split "\\"
+            $domain = $nameParts[0]
+            $searchUsername = $nameParts[1]
+            if ($domain -ne "." -and $domain -ne $env:COMPUTERNAME) {
+                $contextType = [System.DirectoryServices.AccountManagement.ContextType]::Domain
+            }
+        } elseif ($username -match "@") {
+            $contextType = [System.DirectoryServices.AccountManagement.ContextType]::Domain
+        }
+        
+        if ($null -ne $domain -and $contextType -eq [System.DirectoryServices.AccountManagement.ContextType]::Domain) {
+            $context = New-Object System.DirectoryServices.AccountManagement.PrincipalContext($contextType, $domain)
+        } else {
+            $context = New-Object System.DirectoryServices.AccountManagement.PrincipalContext($contextType)
+        }
+
         if (-not $context.ValidateCredentials($username, $password)) {
+            Write-Log "ValidateCredentials failed for user: $username (Context: $contextType)" "WARN"
             return $false
         }
         
         $user = [System.DirectoryServices.AccountManagement.UserPrincipal]::FindByIdentity($context, $username)
-        if ($null -eq $user) { return $false }
+        if ($null -eq $user) { 
+            Write-Log "Could not find UserPrincipal for: $username" "WARN"
+            return $false 
+        }
         
         $groups = $user.GetAuthorizationGroups()
         $inGroup = $false
@@ -92,6 +120,10 @@ function Test-Authentication {
                 $inGroup = $true
                 break
             }
+        }
+        
+        if (-not $inGroup) {
+            Write-Log "User $username is authenticated but not in AllowedGroup: $AllowedGroup" "WARN"
         }
         
         return $inGroup
