@@ -106,6 +106,7 @@ async function handleConnect() {
 
         // Update server badge
         document.getElementById('nav-server-address').textContent = `${host}:${port}`;
+        document.getElementById('nav-user-text').textContent = username;
 
         showToast('success', `Connected to server (agent v${health.version})`);
         
