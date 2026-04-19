@@ -88,7 +88,9 @@ async function handleConnect() {
     api.configure(host, port, apiKey);
 
     try {
+        console.log(`[ServerPilot] Connecting to https://${host}:${port}...`);
         const health = await api.testConnection();
+        console.log('[ServerPilot] Connected successfully:', health);
         
         if (remember) {
             localStorage.setItem('serverpilot_connection', JSON.stringify({ host, port, apiKey }));
@@ -110,11 +112,18 @@ async function handleConnect() {
         startAutoRefresh();
 
     } catch (error) {
+        console.error('[ServerPilot] Connection failed:', error);
         let msg = error.message;
-        if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
-            msg = 'Cannot reach the server. Check the address, port, and ensure the agent is running. If using HTTPS with a self-signed certificate, you may need to visit the server URL directly in your browser first and accept the certificate.';
+        if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('TypeError')) {
+            const serverUrl = `https://${host}:${port}/api/health`;
+            msg = `Cannot reach the server. This is usually because the self-signed SSL certificate has not been accepted yet. `;
+            msg += `<br><br><strong>Step 1:</strong> <a href="${serverUrl}" target="_blank" style="color: var(--accent-blue-light); text-decoration: underline;">Click here to open the server health endpoint</a> and accept the certificate warning in your browser.`;
+            msg += `<br><strong>Step 2:</strong> Come back here and click Connect again.`;
+            errorEl.innerHTML = msg;
+            errorEl.style.display = 'block';
+        } else {
+            showFormError(errorEl, msg);
         }
-        showFormError(errorEl, msg);
     } finally {
         btn.querySelector('.btn-text').textContent = 'Connect';
         btn.querySelector('.btn-loader').style.display = 'none';
