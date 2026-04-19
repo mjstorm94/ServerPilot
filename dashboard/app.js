@@ -20,6 +20,7 @@ const state = {
     certStoreLocation: 'LocalMachine',
     certStoreName: 'My',
     certExpiringDays: 0,
+    userSearchQuery: '',
     cachedData: {},
     // Monitoring / Heartbeat
     heartbeatHistory: [],
@@ -247,6 +248,22 @@ function initSearch() {
             loadProcesses();
         }, 400);
     });
+
+    const userSearch = document.getElementById('user-search');
+    let userSearchTimeout;
+    if (userSearch) {
+        userSearch.addEventListener('input', (e) => {
+            clearTimeout(userSearchTimeout);
+            userSearchTimeout = setTimeout(() => {
+                state.userSearchQuery = e.target.value;
+                if (state.cachedData.users) {
+                    renderUsers(state.cachedData.users);
+                } else {
+                    loadUsers();
+                }
+            }, 300);
+        });
+    }
 
     const serviceSearch = document.getElementById('service-search');
     let svcSearchTimeout;
@@ -1621,7 +1638,21 @@ function renderUsers(data) {
         </thead>
         <tbody>`;
 
-    data.users.forEach(user => {
+    let users = data.users;
+    if (state.userSearchQuery) {
+        const query = state.userSearchQuery.toLowerCase();
+        users = users.filter(u => 
+            u.username.toLowerCase().includes(query) ||
+            (u.full_name && u.full_name.toLowerCase().includes(query)) ||
+            (u.description && u.description.toLowerCase().includes(query))
+        );
+    }
+
+    if (users.length === 0) {
+        html += `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No users found matching "${escHtml(state.userSearchQuery)}"</td></tr>`;
+    }
+
+    users.forEach(user => {
         const statusBadge = user.enabled
             ? '<span class="badge badge-success"><span class="badge-dot"></span>Enabled</span>'
             : '<span class="badge badge-danger"><span class="badge-dot"></span>Disabled</span>';
