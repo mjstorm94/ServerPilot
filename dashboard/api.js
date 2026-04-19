@@ -62,10 +62,13 @@ class ServerAPI {
      */
     async testConnection() {
         try {
-            const result = await this.request('/health');
-            if (result.success) {
+            const healthResult = await this.request('/health');
+            // Also test an authenticated endpoint to ensure credentials are valid
+            await this.request('/system/info');
+            
+            if (healthResult.success) {
                 this.connected = true;
-                return result.data;
+                return healthResult.data;
             }
             throw new Error('Health check failed');
         } catch (error) {

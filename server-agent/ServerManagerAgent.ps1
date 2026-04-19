@@ -48,7 +48,11 @@ function Write-Log {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $logLine = "[$timestamp] [$Level] $Message"
     $logFile = Join-Path $LogPath "agent_$(Get-Date -Format 'yyyyMMdd').log"
-    Add-Content -Path $logFile -Value $logLine
+    try {
+        Add-Content -Path $logFile -Value $logLine -ErrorAction Stop
+    } catch { 
+        # Ignore file lock errors 
+    }
     Write-Host $logLine -ForegroundColor $(switch ($Level) {
         "ERROR" { "Red" }
         "WARN"  { "Yellow" }
@@ -820,13 +824,14 @@ Write-Log "Endpoints available at https://<hostname>:$Port/api/..."
 try {
     while ($listener.IsListening) {
         $context = $listener.GetContext()
-        $request = $context.Request
-        $response = $context.Response
-        
-        $method = $request.HttpMethod
-        $path = $request.Url.AbsolutePath.TrimEnd("/")
-        
-        Write-Log "$method $path" -Level "INFO"
+        try {
+            $request = $context.Request
+            $response = $context.Response
+            
+            $method = $request.HttpMethod
+            $path = $request.Url.AbsolutePath.TrimEnd("/")
+            
+            Write-Log "$method $path" -Level "INFO"
         
         # Handle CORS preflight
         if ($method -eq "OPTIONS") {
@@ -855,14 +860,14 @@ try {
         
         # Authentication check
         if (-not (Test-Authentication -request $request)) {
-            Write-Log "Unauthorized request from $($request.RemoteEndPoint)" -Level "WARN"
+            $endpoint = try { $request.RemoteEndPoint.ToString() } catch { "Unknown" }
+            Write-Log "Unauthorized request from $endpoint" -Level "WARN"
             Send-ErrorResponse -response $response -message "Unauthorized. Provide valid credentials." -statusCode 401
             continue
         }
         
         # Route requests
-        try {
-            $result = switch -Regex ($path) {
+        $result = switch -Regex ($path) {
                 # System
                 "^/api/system/info$" {
                     if ($method -eq "GET") { Get-SystemInfo }
@@ -987,8 +992,8 @@ try {
                 Send-JsonResponse -response $response -data $result
             }
         } catch {
-            Write-Log "Error processing $method $path : $_" -Level "ERROR"
-            Send-ErrorResponse -response $response -message $_.Exception.Message -statusCode 500
+            Write-Log "Error processing request : $_" -Level "ERROR"
+            try { Send-ErrorResponse -response $context.Response -message $_.Exception.Message -statusCode 500 } catch {}
         }
     }
 } finally {
