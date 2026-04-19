@@ -437,6 +437,15 @@ function initModals() {
     });
 }
 
+function generatePassword() {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+";
+    let password = "";
+    for (let i = 0; i < 16; i++) {
+        password += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    document.getElementById('new-password').value = password;
+}
+
 function openModal(id) {
     document.getElementById(id).classList.add('active');
 }
@@ -1629,10 +1638,11 @@ function renderUsers(data) {
                 <td class="mono">${lastLogon}</td>
                 <td>${statusBadge}</td>
                 <td>
-                    <div style="display: flex; gap: 4px;">
+                    <div style="display: flex; gap: 4px; flex-wrap: wrap;">
                         <button class="btn btn-outline btn-sm" onclick="toggleUserStatus('${escHtml(user.username)}', ${user.enabled})">
                             ${user.enabled ? 'Disable' : 'Enable'}
                         </button>
+                        <button class="btn btn-outline btn-sm" onclick="unlockUser('${escHtml(user.username)}')">Unlock</button>
                         <button class="btn btn-ghost btn-sm" onclick="openPasswordModal('${escHtml(user.username)}')">Reset Password</button>
                     </div>
                 </td>
@@ -1654,6 +1664,23 @@ async function toggleUserStatus(username, currentlyEnabled) {
         const result = await api.manageUser(username, action);
         if (result.success) {
             showToast('success', `User ${username} is now ${result.data.enabled ? 'enabled' : 'disabled'}`);
+            loadUsers();
+        } else {
+            showToast('error', result.error);
+        }
+    } catch (error) {
+        showToast('error', error.message);
+    }
+}
+
+async function unlockUser(username) {
+    if (!confirm(`Are you sure you want to unlock the account for ${username}?`)) return;
+    
+    try {
+        showToast('info', `Unlocking user...`);
+        const result = await api.manageUser(username, 'unlock');
+        if (result.success) {
+            showToast('success', `User account unlocked successfully`);
             loadUsers();
         } else {
             showToast('error', result.error);

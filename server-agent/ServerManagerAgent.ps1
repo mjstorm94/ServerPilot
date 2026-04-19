@@ -786,6 +786,7 @@ function Set-LocalUserAction {
         switch ($Action.ToLower()) {
             "enable" { Enable-LocalUser -Name $Username }
             "disable" { Disable-LocalUser -Name $Username }
+            "unlock" { Unlock-LocalAccount -Name $Username }
             "reset_password" {
                 if ([string]::IsNullOrEmpty($Password)) { throw "Password is required for reset" }
                 $securePassword = ConvertTo-SecureString $Password -AsPlainText -Force
